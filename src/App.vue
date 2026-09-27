@@ -1,22 +1,135 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import patreonLogo from './assets/patreon.png'
 
 const showContact = ref(false)
 const showMenu = ref(false)
 const version = ref('Loading...')
 const downloadUrl = ref('https://github.com/Official-Novadesk/novadesk/releases/latest')
 
+interface WidgetItem {
+  name: string
+  image: string
+  repoUrl: string
+}
+
+const widgets: WidgetItem[] = [
+  {
+    name: 'CleanTime',
+    image: 'https://res.cloudinary.com/i8b6ikc3/image/upload/v1790264582/zfjzk4hhfnkjjrpvm8xd.png',
+    repoUrl: 'https://github.com/NSTechBytes/CleanTime'
+  },
+  {
+    name: 'AeroWeather',
+    image: 'https://res.cloudinary.com/i8b6ikc3/image/upload/v1790264581/p9kznwu99er2eypdqco9.png',
+    repoUrl: 'https://github.com/NSTechBytes/AeroWeather'
+  },
+  {
+    name: 'FineTime',
+    image: 'https://res.cloudinary.com/i8b6ikc3/image/upload/v1790302673/gy4sesxtpbzgzxg9npeh.png',
+    repoUrl: 'https://github.com/NSTechBytes/FineTime'
+  },
+  {
+    name: 'AClock',
+    image: 'https://res.cloudinary.com/i8b6ikc3/image/upload/v1790264581/voovyxrymb8d0p3n2bhb.png',
+    repoUrl: 'https://github.com/NSTechBytes/AClock'
+  },
+  {
+    name: 'SmartPlayer',
+    image: 'https://res.cloudinary.com/i8b6ikc3/image/upload/v1790264579/hz7uexfdpqkbjnqpteyb.jpg',
+    repoUrl: 'https://github.com/NSTechBytes/SmartPlayer'
+  }
+]
+
+const currentSlide = ref(0)
+const currentWidget = computed<WidgetItem>(() => widgets[currentSlide.value] ?? widgets[0] as WidgetItem)
+let slideTimer: ReturnType<typeof setInterval> | null = null
+
+const showWidgetModal = ref(false)
+const activeWidget = ref<WidgetItem | null>(null)
+
+const openWidgetModal = (w?: WidgetItem) => {
+  stopAutoplay()
+  activeWidget.value = w || currentWidget.value
+  showWidgetModal.value = true
+}
+
+const closeWidgetModal = () => {
+  showWidgetModal.value = false
+  startAutoplay()
+}
+
+const proceedToRelease = () => {
+  if (activeWidget.value?.repoUrl) {
+    window.open(`${activeWidget.value.repoUrl}/releases/latest`, '_blank', 'noopener,noreferrer')
+  }
+  closeWidgetModal()
+}
+
+const nextSlide = () => {
+  currentSlide.value = (currentSlide.value + 1) % widgets.length
+}
+
+const prevSlide = () => {
+  currentSlide.value = (currentSlide.value - 1 + widgets.length) % widgets.length
+}
+
+const goToSlide = (idx: number) => {
+  currentSlide.value = idx
+}
+
+const preloadImages = () => {
+  widgets.forEach(widget => {
+    const img = new Image()
+    img.src = widget.image
+  })
+}
+
+const startAutoplay = () => {
+  stopAutoplay()
+  slideTimer = setInterval(() => {
+    nextSlide()
+  }, 4000)
+}
+
+const stopAutoplay = () => {
+  if (slideTimer) {
+    clearInterval(slideTimer)
+    slideTimer = null
+  }
+}
+
+const copied = ref(false)
+let copyTimer: ReturnType<typeof setTimeout> | null = null
+
+const copyEmail = async () => {
+  try {
+    await navigator.clipboard.writeText('officialnovadesk@gmail.com')
+    copied.value = true
+    if (copyTimer) clearTimeout(copyTimer)
+    copyTimer = setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch (err) {
+    // fallback
+  }
+}
+
 const openContact = () => {
+  copied.value = false
   showContact.value = true
 }
 const closeContact = () => {
   showContact.value = false
+  copied.value = false
 }
 const toggleMenu = () => {
   showMenu.value = !showMenu.value
 }
 
 onMounted(async () => {
+  preloadImages()
+  startAutoplay()
   try {
     const res = await fetch('https://api.github.com/repos/Official-Novadesk/novadesk/releases/latest', {
       headers: { Accept: 'application/vnd.github+json' }
@@ -38,6 +151,10 @@ onMounted(async () => {
     version.value = 'v0.3.0.0 Beta Build'
     downloadUrl.value = 'https://github.com/Official-Novadesk/novadesk/releases/latest'
   }
+})
+
+onUnmounted(() => {
+  stopAutoplay()
 })
 </script>
 
@@ -91,22 +208,209 @@ onMounted(async () => {
           <span class="version">{{ version }}</span>
         </p>
       </div>
+
+      <!-- Preview Widgets Slideshow -->
+      <div
+        class="slideshow-wrapper"
+        @mouseenter="stopAutoplay"
+        @mouseleave="startAutoplay"
+      >
+        <div class="slideshow">
+          <transition name="slide-fade" mode="out-in">
+            <div
+              :key="currentSlide"
+              class="slide clickable"
+              role="button"
+              tabindex="0"
+              :aria-label="`Get ${currentWidget.name} Widget`"
+              @click="openWidgetModal(currentWidget)"
+              @keydown.enter="openWidgetModal(currentWidget)"
+            >
+              <img
+                :src="currentWidget.image"
+                :alt="currentWidget.name"
+                class="slide-img"
+              />
+              <div class="slide-click-hint">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Click to get widget</span>
+              </div>
+            </div>
+          </transition>
+
+          <button
+            class="slide-nav prev"
+            type="button"
+            @click.stop="prevSlide"
+            aria-label="Previous slide"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <button
+            class="slide-nav next"
+            type="button"
+            @click.stop="nextSlide"
+            aria-label="Next slide"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+
+          <div
+            class="slide-badge"
+            role="button"
+            tabindex="0"
+            @click.stop="openWidgetModal(currentWidget)"
+            :aria-label="`Get ${currentWidget.name} Widget`"
+          >
+            <span>{{ currentWidget.name }} Widget</span>
+          </div>
+
+          <div class="slide-dots">
+            <button
+              v-for="(w, idx) in widgets"
+              :key="idx"
+              class="dot"
+              :class="{ active: idx === currentSlide }"
+              type="button"
+              :aria-label="`Go to ${w.name} slide`"
+              @click="goToSlide(idx)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Patreon Support Block -->
+      <section class="patreon-card">
+        <div class="patreon-content">
+          <div class="patreon-logo-wrapper">
+            <img :src="patreonLogo" alt="Patreon Logo" class="patreon-logo" />
+          </div>
+          <div class="patreon-text">
+            <h2>Support Us on Patreon</h2>
+            <p>
+              Novadesk is free and open-source. Consider supporting our development to
+              unlock exclusive benefits, early build access, and custom widget perks.
+            </p>
+          </div>
+        </div>
+        <a
+          class="patreon-btn"
+          href="https://www.patreon.com/c/officialnovadesk"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Support on Patreon
+        </a>
+      </section>
     </section>
   </main>
   <footer class="footer">OfficialNovadesk all rights reserved</footer>
 
+  <!-- Modern Contact Modal -->
   <div v-if="showContact" class="modal-backdrop" @click.self="closeContact">
-    <div class="modal">
+    <div class="modal contact-modal">
       <button class="icon-close" type="button" @click="closeContact" aria-label="Close">
         <img src="./assets/icons/close.png" alt="Close" />
       </button>
-      <div class="modal-heading">
-        <img src="./assets/icons/mail.png" alt="Mail" />
-        <h2>Contact</h2>
+
+      <div class="contact-modal-heading">
+        <div class="contact-modal-icon">
+          <img src="./assets/icons/mail.png" alt="Mail" />
+        </div>
+        <h2>Get in Touch</h2>
       </div>
-      <div class="email-chip">
-        <span>Email:</span>
-        <a href="mailto:officialnovadesk@gmail.com">officialnovadesk@gmail.com</a>
+
+      <div class="contact-modal-alert">
+        <div class="alert-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#73F0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <p class="alert-text">
+          Have questions, feedback, or suggestions? Reach out directly to the <strong>Novadesk</strong> team.
+        </p>
+      </div>
+
+      <div class="email-display-card">
+        <div class="email-address-wrapper">
+          <span class="email-label">Email Address</span>
+          <a class="email-val" href="mailto:officialnovadesk@gmail.com">officialnovadesk@gmail.com</a>
+        </div>
+        <button class="btn-copy" type="button" @click="copyEmail" :aria-label="copied ? 'Email copied' : 'Copy email address'">
+          <svg v-if="!copied" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#73F0FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>{{ copied ? 'Copied!' : 'Copy' }}</span>
+        </button>
+      </div>
+
+      <div class="contact-modal-actions">
+        <a class="btn-proceed" href="mailto:officialnovadesk@gmail.com">
+          <span>Send an Email</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Widget Requirements & Release Modal -->
+  <div v-if="showWidgetModal" class="modal-backdrop" @click.self="closeWidgetModal">
+    <div class="modal widget-modal">
+      <button class="icon-close" type="button" @click="closeWidgetModal" aria-label="Close">
+        <img src="./assets/icons/close.png" alt="Close" />
+      </button>
+
+      <div class="widget-modal-heading">
+        <div class="widget-modal-icon">
+          <img src="./assets/logo.png" alt="Novadesk" />
+        </div>
+        <h2>{{ activeWidget?.name }} Widget</h2>
+      </div>
+
+      <div class="widget-modal-alert">
+        <div class="alert-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#73F0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <p class="alert-text">
+          To use this widget, make sure you have installed <strong>Novadesk</strong> in your system.
+        </p>
+      </div>
+
+      <p class="widget-modal-desc">
+        Click below to proceed to the latest release on GitHub and download the widget package.
+      </p>
+
+      <div class="widget-modal-actions">
+        <button class="btn-proceed" type="button" @click="proceedToRelease">
+          <span>Okay, I do</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+
+        <a class="btn-novadesk-link" :href="downloadUrl" download>
+          Don't have Novadesk? Download it here
+        </a>
       </div>
     </div>
   </div>
@@ -392,6 +696,7 @@ onMounted(async () => {
 
 .modal {
   position: relative;
+  box-sizing: border-box;
   background: #1f1f24;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
@@ -415,41 +720,271 @@ onMounted(async () => {
   color: #d9d9e0;
 }
 
-.email-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.9rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  margin-top: 0.4rem;
-}
-
-.email-chip a {
-  color: #e7e7ed;
-  text-decoration: none;
-}
-
-.email-chip span {
-  color: #fff;
-}
-
 .modal a {
   color: #7cc3ff;
 }
 
-.modal-heading {
-  display: inline-flex;
+/* Modern Modals Shared Base */
+.widget-modal,
+.contact-modal {
+  max-width: 440px;
+  width: 90%;
+  box-sizing: border-box;
+  background: #141c2e;
+  border: 1px solid rgba(81, 188, 254, 0.38);
+  border-radius: 20px;
+  padding: 2.2rem 2rem 2rem;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65), 0 0 35px rgba(56, 189, 248, 0.16);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.55rem;
-  margin-bottom: 0.05rem;
-  line-height: 1;
+  gap: 1rem;
+  text-align: center;
 }
 
-.modal-heading img {
-  width: 26px;
-  height: 26px;
+/* Contact Modal */
+.contact-modal-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.contact-modal-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(81, 188, 254, 0.12);
+  border: 1px solid rgba(81, 188, 254, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contact-modal-icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(85%) sepia(55%) saturate(600%) hue-rotate(158deg) brightness(1.1);
+}
+
+.contact-modal-heading h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.contact-modal-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(81, 188, 254, 0.28);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  text-align: left;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.contact-modal-alert .alert-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.contact-modal-alert .alert-text {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.contact-modal-alert .alert-text strong {
+  color: #73F0FF;
+  font-weight: 600;
+}
+
+.email-display-card {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(10, 18, 36, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.email-address-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  overflow: hidden;
+}
+
+.email-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #73F0FF;
+  font-weight: 600;
+}
+
+.email-val {
+  color: #f1f5f9;
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  word-break: break-all;
+}
+
+.email-val:hover {
+  color: #73F0FF;
+}
+
+.btn-copy {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-copy:hover {
+  background: rgba(81, 188, 254, 0.2);
+  border-color: rgba(81, 188, 254, 0.5);
+  color: #73F0FF;
+}
+
+.contact-modal-actions {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.2rem;
+}
+
+.widget-modal-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.widget-modal-icon {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.widget-modal-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.widget-modal-heading h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.widget-modal-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(81, 188, 254, 0.28);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  text-align: left;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.widget-modal-alert .alert-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.widget-modal-alert .alert-text {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+}
+
+.widget-modal-alert .alert-text strong {
+  color: #73F0FF;
+  font-weight: 600;
+}
+
+.widget-modal-desc {
+  margin: 0.1rem 0;
+  font-size: 0.88rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.widget-modal-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.4rem;
+}
+
+.btn-proceed {
+  width: 100%;
+  box-sizing: border-box;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  background: linear-gradient(90deg, #00C6FF 0%, #1E90FF 100%);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.85rem 1.8rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 198, 255, 0.38);
+  transition: all 0.2s ease;
+}
+
+.btn-proceed:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 198, 255, 0.55);
+  filter: brightness(1.06);
+}
+
+.btn-novadesk-link {
+  color: #73F0FF;
+  font-size: 0.86rem;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.btn-novadesk-link:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 .icon-close {
@@ -520,6 +1055,266 @@ onMounted(async () => {
   border-radius: 999px;
 }
 
+/* Slideshow styles */
+.slideshow-wrapper {
+  width: min(720px, 100%);
+  margin-top: 2rem;
+  position: relative;
+  user-select: none;
+}
+
+.slideshow {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9.6;
+  border-radius: 20px;
+  overflow: hidden;
+  background: rgba(10, 18, 36, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55), 0 0 35px rgba(56, 189, 248, 0.12);
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.slide.clickable {
+  cursor: pointer;
+}
+
+.slide-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.45s ease;
+}
+
+.slide.clickable:hover .slide-img {
+  transform: scale(1.03);
+}
+
+.slide-click-hint {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(11, 20, 38, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(81, 188, 254, 0.35);
+  border-radius: 999px;
+  padding: 0.38rem 0.85rem;
+  color: #73F0FF;
+  font-size: 0.82rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: all 0.25s ease;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.slide.clickable:hover .slide-click-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(13, 20, 36, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 5;
+  padding: 0;
+}
+
+.slide-nav.prev {
+  left: 16px;
+}
+
+.slide-nav.next {
+  right: 16px;
+}
+
+.slide-nav:hover {
+  background: rgba(56, 189, 248, 0.35);
+  border-color: rgba(56, 189, 248, 0.7);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+}
+
+.slide-badge {
+  position: absolute;
+  bottom: 16px;
+  left: 18px;
+  background: rgba(11, 19, 36, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 0.42rem 1.05rem;
+  color: #f1f5f9;
+  font-size: 0.88rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  z-index: 4;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
+}
+
+.slide-badge:hover {
+  background: rgba(56, 189, 248, 0.28);
+  border-color: rgba(56, 189, 248, 0.6);
+  transform: translateY(-1px);
+}
+
+.slide-dots {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 4;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.dot:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.dot.active {
+  background: #00C6FF;
+  box-shadow: 0 0 12px rgba(0, 198, 255, 0.85);
+  width: 22px;
+  border-radius: 999px;
+}
+
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: opacity 0.35s ease;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+}
+
+/* Patreon Support Block */
+.patreon-card {
+  margin-top: 3.5rem;
+  margin-bottom: 1.5rem;
+  width: min(980px, 100%);
+  box-sizing: border-box;
+  border-radius: 22px;
+  background: rgba(12, 22, 42, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(81, 188, 254, 0.45);
+  box-shadow: 0 0 35px rgba(56, 189, 248, 0.28), inset 0 0 20px rgba(56, 189, 248, 0.08), 0 15px 40px rgba(0, 0, 0, 0.45);
+  padding: 1.6rem 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  text-align: left;
+}
+
+.patreon-content {
+  display: flex;
+  align-items: center;
+  gap: 1.35rem;
+  flex: 1;
+}
+
+.patreon-logo-wrapper {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.patreon-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(255, 66, 77, 0.25);
+}
+
+.patreon-text h2 {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.patreon-text p {
+  margin: 0;
+  font-size: 0.93rem;
+  color: #9fa2b8;
+  line-height: 1.5;
+  max-width: 620px;
+}
+
+.patreon-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #FF6448 0%, #FF424D 100%);
+  color: #ffffff;
+  text-decoration: none;
+  padding: 0.85rem 1.8rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  box-shadow: 0 6px 22px rgba(255, 66, 77, 0.45);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.patreon-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(255, 66, 77, 0.65);
+  filter: brightness(1.06);
+}
+
 @media (max-width: 780px) {
   .nav-inner {
     grid-template-columns: auto 1fr auto;
@@ -567,6 +1362,100 @@ onMounted(async () => {
 
   .links.open {
     max-height: 160px;
+  }
+
+  /* Responsive Slideshow */
+  .slideshow-wrapper {
+    margin-top: 1.5rem;
+  }
+
+  .slideshow {
+    border-radius: 16px;
+  }
+
+  .slide-nav {
+    width: 32px;
+    height: 32px;
+  }
+
+  .slide-nav.prev {
+    left: 10px;
+  }
+
+  .slide-nav.next {
+    right: 10px;
+  }
+
+  .slide-badge {
+    bottom: 12px;
+    left: 12px;
+    font-size: 0.78rem;
+    padding: 0.32rem 0.75rem;
+  }
+
+  .slide-dots {
+    bottom: 14px;
+  }
+
+  /* Responsive Patreon Card */
+  .patreon-card {
+    margin-top: 2.5rem;
+    padding: 1.5rem 1.25rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 1.35rem;
+  }
+
+  .patreon-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.85rem;
+  }
+
+  .patreon-logo-wrapper {
+    margin: 0 auto;
+  }
+
+  .patreon-text h2 {
+    font-size: 1.22rem;
+  }
+
+  .patreon-btn {
+    width: 100%;
+    max-width: 280px;
+    align-self: center;
+  }
+
+  /* Responsive Modals */
+  .widget-modal,
+  .contact-modal {
+    padding: 1.8rem 1.35rem 1.6rem;
+    min-width: unset;
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .widget-modal-heading h2,
+  .contact-modal-heading h2 {
+    font-size: 1.25rem;
+  }
+
+  .widget-modal-alert,
+  .contact-modal-alert {
+    padding: 0.85rem 1rem;
+  }
+
+  .widget-modal-alert .alert-text,
+  .contact-modal-alert .alert-text {
+    font-size: 0.88rem;
+  }
+
+  .email-display-card {
+    padding: 0.65rem 0.85rem;
+  }
+
+  .email-val {
+    font-size: 0.84rem;
   }
 }
 </style>
